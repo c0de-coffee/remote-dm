@@ -4,10 +4,8 @@ version = "0.2.0"
 edition = "2021"
 # GPL-3.0-only because it includes code from greetd (src/pam, src/scrambler.rs).
 license = "GPL-3.0-only"
-description = "Remote login display manager: GDM's remote display interface for gnome-remote-desktop, greetd's IPC for greeters"
-
-# Not part of the niri workspace.
-[workspace]
+description = "Remote login display manager: GDM's remote display interface for gnome-remote-desktop, greetd's and plasma-login-manager's IPC for greeters"
+repository = "https://github.com/c0de-coffee/remote-dm"
 
 [dependencies]
 anyhow = "1"

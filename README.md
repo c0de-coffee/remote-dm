@@ -8,6 +8,9 @@ A display manager for remote logins only: RDP into a machine, get a login screen
 in your own headless session. Several people can be logged in at once, and reconnecting brings you
 back to your running session.
 
+> remote-dm used to live in [niri-remote](https://github.com/c0de-coffee/niri-remote) (as `remote-dm/` on the `remote-desktop` branch).
+> In November 2026 it moved here, with its history, since it isn't tied to niri anymore.
+
 gnome-remote-desktop's (grd's) remote login mode is meant to work with GDM. remote-dm is the part
 of GDM that grd needs, without GDM:
 
@@ -20,7 +23,7 @@ of GDM that grd needs, without GDM:
   KDE's own login screen works too.
 - Sessions are seatless, remote logind sessions. By default both the greeter and the user session
   run headless niri. The compositor needs to implement mutter's `RemoteDesktop`/`ScreenCast`
-  interfaces, including virtual outputs (`RecordVirtual`), like [my fork of niri](../README.md).
+  interfaces, including virtual outputs (`RecordVirtual`), like [my fork of niri](https://github.com/c0de-coffee/niri-remote).
   KDE Plasma works too, see [KDE Plasma](#kde-plasma).
 
 ## How a connection goes
@@ -56,16 +59,16 @@ started for it.
 
 ### 1. Packages
 
-On Arch Linux, the simplest way is to install the prebuilt packages from this repository's
-[Releases](https://github.com/c0de-coffee/niri-remote/releases) (together with a niri with remote desktop
-support):
+On Arch Linux, the simplest way is to install the prebuilt packages from
+[niri-remote's Releases](https://github.com/c0de-coffee/niri-remote/releases) (remote-dm 0.2.0, together with a niri with remote desktop
+support; KDE Plasma support is newer, use `remote-dm-git` for it until the next release):
 
 ```sh
 sudo pacman -U niri-remote-desktop-*.pkg.tar.zst remote-dm-*.pkg.tar.zst
 ```
 
 Or build them with the PKGBUILDs in `packaging/` of this repository: `remote-dm` builds the release,
-`remote-dm-git` the latest commit of the `remote-desktop` branch.
+`remote-dm-git` the latest commit of the `main` branch.
 
 ```sh
 cd packaging/remote-dm && makepkg -si
@@ -153,7 +156,7 @@ use multimon:i:1
 
 Which monitor is on the left and which one is primary only follows Windows' display settings when
 gnome-remote-desktop has our optional patch; see the
-[known issues](../README.md#known-issues-and-limitations) in the fork's README.
+[known issues](https://github.com/c0de-coffee/niri-remote#known-issues-and-limitations) in niri-remote's README.
 
 ### FreeRDP
 
@@ -230,7 +233,7 @@ remote-dm also works with KDE Plasma, using
 - `plasma-meta` (or at least `plasma-desktop`), `plasma-login-manager` (or `greetd-regreet`) and
   kwin-mutter-bridge installed
   as `/usr/local/bin/kwin-mutter-bridge`
-- gnome-remote-desktop with patches 0003–0005 from [`patches/`](../patches/gnome-remote-desktop/)
+- gnome-remote-desktop with patches 0003–0005 from [`patches/`](patches/gnome-remote-desktop/)
   (`packaging/gnome-remote-desktop/build.sh` applies them all)
 - the KDE commands in `/etc/remote-dm/config.toml`:
 

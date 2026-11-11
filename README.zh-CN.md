@@ -7,11 +7,13 @@
 只负责远程登录的显示管理器：用 RDP 连上这台电脑，看到登录界面，登录后进入自己的无头会话。
 可以多人同时登录，断开后再连会回到原来的会话。
 
+> remote-dm 以前放在 [niri-remote](https://github.com/c0de-coffee/niri-remote) 里（`remote-desktop` 分支的 `remote-dm/` 目录）。它已经不只给 niri 用了，2026 年 11 月连同提交历史一起搬到了这里。
+
 gnome-remote-desktop（下面简称 grd）的远程登录模式本来要配合 GDM 使用。remote-dm 只做了其中 grd 需要的那部分，不需要装 GDM：
 
 - 对 **grd 的系统服务**，它实现 GDM 的远程显示接口（`org.gnome.DisplayManager` 的 `RemoteDisplayFactory`、`RemoteDisplay`），所以 grd 不用修改。
 - 对**登录界面**，它使用 **greetd 的协议**，所以任何 greetd 登录界面都能用（默认是 regreet，也支持 [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter)）。它也会 KDE 登录管理器（plasma-login-manager）的协议，所以 KDE 原版登录界面也能用。
-- 会话都是没有座位（seat）的远程 logind 会话。登录界面和用户会话默认都跑无头 niri。合成器必须实现 mutter 的 `RemoteDesktop`、`ScreenCast` 接口，包括虚拟屏幕（`RecordVirtual`），比如[我 fork 的这个 niri](../README.zh-CN.md)。KDE Plasma 也能用，见 [KDE Plasma](#kde-plasma)。
+- 会话都是没有座位（seat）的远程 logind 会话。登录界面和用户会话默认都跑无头 niri。合成器必须实现 mutter 的 `RemoteDesktop`、`ScreenCast` 接口，包括虚拟屏幕（`RecordVirtual`），比如[我 fork 的 niri](https://github.com/c0de-coffee/niri-remote/blob/remote-desktop/README.zh-CN.md)。KDE Plasma 也能用，见 [KDE Plasma](#kde-plasma)。
 
 ## 一次连接的过程
 
@@ -39,13 +41,13 @@ RDP 客户端 ──① 连接──▶ grd 系统服务（端口 3389，先验�
 
 ### 1. 安装软件包
 
-在 Arch Linux 上，最省事的是直接装本仓库 [Releases](https://github.com/c0de-coffee/niri-remote/releases) 里编好的包（同时装上带远程桌面的 niri）：
+在 Arch Linux 上，最省事的是直接装 [niri-remote 的 Releases](https://github.com/c0de-coffee/niri-remote/releases) 里编好的包（remote-dm 0.2.0，同时装上带远程桌面的 niri；KDE Plasma 支持是之后加的，下一个版本发布前请用 `remote-dm-git`）：
 
 ```sh
 sudo pacman -U niri-remote-desktop-*.pkg.tar.zst remote-dm-*.pkg.tar.zst
 ```
 
-也可以用本仓库 `packaging/` 里的 PKGBUILD 自己编译。`remote-dm` 编译 Release 版本，`remote-dm-git` 编译 `remote-desktop` 分支上已提交的最新代码：
+也可以用本仓库 `packaging/` 里的 PKGBUILD 自己编译。`remote-dm` 编译 Release 版本，`remote-dm-git` 编译 `main` 分支上已提交的最新代码：
 
 ```sh
 cd packaging/remote-dm && makepkg -si
@@ -121,7 +123,7 @@ mstsc 默认不跟随服务器重定向，直接连会卡在第一步或者反�
 use multimon:i:1
 ```
 
-几块屏幕谁左谁右、哪块是主屏，要 gnome-remote-desktop 打上我们的可选补丁，才会跟着 Windows 显示设置里的排列走，见这个 fork 的 README 里的[已知问题](../README.zh-CN.md#已知问题和限制)。
+几块屏幕谁左谁右、哪块是主屏，要 gnome-remote-desktop 打上我们的可选补丁，才会跟着 Windows 显示设置里的排列走，见 niri-remote 的 README 里的[已知问题](https://github.com/c0de-coffee/niri-remote/blob/remote-desktop/README.zh-CN.md#已知问题和限制)。
 
 ### FreeRDP
 
@@ -184,7 +186,7 @@ sudo grdctl --system rdp set-auth-methods credentials,kerberos
 remote-dm 也能配 KDE Plasma 用，靠的是 [kwin-mutter-bridge](https://github.com/c0de-coffee/kwin-mutter-bridge)：它在 KWin 上提供 mutter 的 `ScreenCast`、`RemoteDesktop` 接口，KWin 本身不用改。需要：
 
 - 装好 `plasma-meta`（至少 `plasma-desktop`）、`plasma-login-manager`（或者 `greetd-regreet`），kwin-mutter-bridge 装到 `/usr/local/bin/kwin-mutter-bridge`
-- gnome-remote-desktop 打上 [`patches/`](../patches/gnome-remote-desktop/) 里的 0003–0005（`packaging/gnome-remote-desktop/build.sh` 会全部打上）
+- gnome-remote-desktop 打上 [`patches/`](patches/gnome-remote-desktop/) 里的 0003–0005（`packaging/gnome-remote-desktop/build.sh` 会全部打上）
 - `/etc/remote-dm/config.toml` 改成 KDE 的命令：
 
 ```toml

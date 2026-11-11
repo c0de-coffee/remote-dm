@@ -1,8 +1,10 @@
 # Maintainer: c0de-coffee <53132135+c0de-coffee@users.noreply.github.com>
 #
 # remote-dm: display manager for GNOME-style RDP remote login with gnome-remote-desktop: a login
-# screen per connection, then the user's own headless niri session. Built from a release tag of
-# https://github.com/c0de-coffee/niri-remote (remote-dm/ on the remote-desktop branch).
+# screen per connection, then the user's own headless niri session. 0.2.0 was released from
+# https://github.com/c0de-coffee/niri-remote (remote-dm/ on the remote-desktop branch), where
+# remote-dm lived until it moved to https://github.com/c0de-coffee/remote-dm; later releases will
+# come from there.
 
 pkgname=remote-dm
 pkgver=0.2.0
