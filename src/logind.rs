@@ -97,6 +97,14 @@ pub async fn terminate_sessions_and_wait(system_bus: &Connection, ids: &[String]
             tracing::warn!(session_id = id, "TerminateSession: {err}");
         }
     }
+    wait_for_sessions_to_end(system_bus, ids).await;
+}
+
+/// Waits (up to 10 seconds) until the sessions are gone.
+pub async fn wait_for_sessions_to_end(system_bus: &Connection, ids: &[String]) {
+    let Ok(manager) = ManagerProxy::new(system_bus).await else {
+        return;
+    };
     for _ in 0..100 {
         let Ok(sessions) = manager.list_sessions().await else {
             return;
@@ -106,7 +114,7 @@ pub async fn terminate_sessions_and_wait(system_bus: &Connection, ids: &[String]
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    tracing::warn!(?ids, "sessions still there after terminating them");
+    tracing::warn!(?ids, "sessions still there after ending them");
 }
 
 /// Stops the graphical session in the user's systemd user instance.

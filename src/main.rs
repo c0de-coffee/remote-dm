@@ -311,6 +311,23 @@ async fn run(args: Args) -> anyhow::Result<()> {
             login.session.terminate();
         }
     }
+    // We won't see the sessions end: wait for them here, then clean up after them.
+    let users: Vec<String> = state
+        .remotes
+        .values()
+        .filter_map(|remote| Some(remote.login.as_ref()?.username.clone()))
+        .collect();
+    let ids: Vec<String> = state
+        .remotes
+        .values()
+        .filter_map(|remote| remote.login.as_ref()?.session_id.clone())
+        .collect();
+    if !state.session_bus {
+        logind::wait_for_sessions_to_end(&state.conn, &ids).await;
+    }
+    for username in users {
+        state.stop_leftover_desktop(&username).await;
+    }
     Ok(())
 }
 
@@ -545,8 +562,11 @@ impl State {
             }
             WorkerEvent::Exited { code } => {
                 tracing::info!(remote = remote_key, code, "user session ended");
-                remote.login = None;
+                let username = remote.login.take().map(|login| login.username);
                 self.end_remote(remote_key).await;
+                if let Some(username) = username {
+                    self.stop_leftover_desktop(&username).await;
+                }
             }
         }
     }
@@ -759,6 +779,32 @@ impl State {
                 }
                 let _ = reply.send(Response::Success);
             }
+        }
+    }
+
+    /// After a user session ended: stops the desktop it left running in the user's systemd user
+    /// instance, unless the user has another graphical session.
+    ///
+    /// Plasma runs as user services, outside of the logind session, and only stops them when
+    /// startplasma gets to clean up (a normal logout). When the session is ended otherwise
+    /// (`loginctl terminate-session`, remote-dm restarting), they stay: the next login gets that
+    /// orphaned desktop back, without a display in the activation environment, so things like the
+    /// logout prompt can't start.
+    async fn stop_leftover_desktop(&self, username: &str) {
+        if self.session_bus {
+            return;
+        }
+        let Some(uid) = nix::unistd::User::from_name(username).ok().flatten().map(|u| u.uid.as_raw())
+        else {
+            return;
+        };
+        match logind::graphical_sessions(&self.conn, uid, &[]).await {
+            Ok(sessions) if sessions.is_empty() => {
+                tracing::info!(username, "stopping the user's graphical session");
+                logind::stop_graphical_session(username).await;
+            }
+            Ok(_) => {}
+            Err(err) => tracing::warn!("error listing the user's sessions: {err:?}"),
         }
     }
 
