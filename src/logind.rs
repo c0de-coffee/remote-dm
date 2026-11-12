@@ -28,6 +28,8 @@ pub trait Session {
     fn type_(&self) -> zbus::Result<String>;
     #[zbus(property)]
     fn state(&self) -> zbus::Result<String>;
+    #[zbus(property)]
+    fn remote(&self) -> zbus::Result<bool>;
 }
 
 /// The user's graphical sessions that are still running, except `exclude`.
@@ -40,10 +42,23 @@ pub async fn graphical_sessions(
     uid: u32,
     exclude: &[String],
 ) -> zbus::Result<Vec<String>> {
+    Ok(graphical_sessions_with_remote(system_bus, uid)
+        .await?
+        .into_iter()
+        .filter(|(id, _)| !exclude.contains(id))
+        .map(|(id, _)| id)
+        .collect())
+}
+
+/// The user's graphical sessions that are still running, and whether each is remote.
+pub async fn graphical_sessions_with_remote(
+    system_bus: &Connection,
+    uid: u32,
+) -> zbus::Result<Vec<(String, bool)>> {
     let manager = ManagerProxy::new(system_bus).await?;
     let mut found = Vec::new();
     for (id, session_uid, _, _, path) in manager.list_sessions().await? {
-        if session_uid != uid || exclude.contains(&id) {
+        if session_uid != uid {
             continue;
         }
         let session = SessionProxy::builder(system_bus)
@@ -52,13 +67,16 @@ pub async fn graphical_sessions(
             .build()
             .await?;
         // Sessions can go away while we look; skip those.
-        let (Ok(class), Ok(type_), Ok(state)) =
-            (session.class().await, session.type_().await, session.state().await)
-        else {
+        let (Ok(class), Ok(type_), Ok(state), Ok(remote)) = (
+            session.class().await,
+            session.type_().await,
+            session.state().await,
+            session.remote().await,
+        ) else {
             continue;
         };
         if class == "user" && matches!(type_.as_str(), "wayland" | "x11" | "mir") && state != "closing" {
-            found.push(id);
+            found.push((id, remote));
         }
     }
     Ok(found)

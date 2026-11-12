@@ -168,6 +168,15 @@ Remmina、macOS 的 Windows App、手机上的远程桌面客户端都还没测�
 
 所以远程登录时，如果这个账户正在本机登录，输完密码后登录界面会问要不要注销本机会话。输入 `yes` 会注销本机会话（**本机上没保存的内容都会丢失**），然后进入远程会话；输入其他内容就取消登录，本机会话不受影响。
 
+反过来，账户已经远程登录时再在本机登录，也要先处理。remote-dm 管不到本机的登录管理器，需要在它的 PAM 配置里加一行（GDM 自己会处理，不用加）。不加的话，本机的 Plasma 会卡在黑屏，因为它以为桌面已经在运行；等本机会话结束时，远程会话也会一起被关掉。以 plasmalogin 为例，先复制一份它的配置，再在 `account include system-login` 后面加上 remote-dm 这一行：
+
+```sh
+sudo cp /usr/lib/pam.d/plasmalogin /etc/pam.d/plasmalogin
+sudo sed -i '/^account.*include.*system-login/a account     required    pam_exec.so stdout quiet /usr/bin/remote-dm local-login' /etc/pam.d/plasmalogin
+```
+
+（greetd 就改 `/etc/pam.d/greetd`。）加上以后，账户正在远程登录时，本机登录的第一次会失败，并提示"再登录一次会注销远程会话"，提示显示 5 秒。一分钟内再登录一次，就会注销远程会话（**远程那边没保存的内容都会丢失**），然后进入本机桌面。`/etc/pam.d/plasmalogin` 会覆盖 `/usr/lib/pam.d/plasmalogin`，以后 plasma-login-manager 更新了它的 PAM 配置，需要自己同步。
+
 ## Kerberos 单点登录
 
 配置了 Kerberos 后，grd 已经验证过用户身份，会把用户名告诉 remote-dm（`preauthenticated-user`）。remote-dm 就像 GDM 一样跳过登录界面，用 `remote-dm-autologin` 这个 PAM 服务（不需要密码）直接启动用户会话，或者回到已有的会话。如果这个用户正在本机登录，还是会先显示登录界面来提问。

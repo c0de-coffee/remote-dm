@@ -208,6 +208,23 @@ So when the user is logged in locally, the login screen asks after the password 
 the local session. `yes` logs it out (**anything unsaved there is lost**) and continues to the
 remote session; anything else cancels the login and leaves the local session alone.
 
+The other way around, logging in locally while the user is logged in remotely, needs a line in the
+local login manager's PAM configuration, since remote-dm doesn't run that one (GDM handles it
+itself). Without it, local Plasma hangs on a black screen because it thinks the desktop is already
+running, and when that local session ends it takes the remote one down too. For plasmalogin, copy
+its configuration and add remote-dm after `account include system-login`:
+
+```sh
+sudo cp /usr/lib/pam.d/plasmalogin /etc/pam.d/plasmalogin
+sudo sed -i '/^account.*include.*system-login/a account     required    pam_exec.so stdout quiet /usr/bin/remote-dm local-login' /etc/pam.d/plasmalogin
+```
+
+(For greetd, edit `/etc/pam.d/greetd`.) Then, while the user is logged in remotely, the first local
+login fails after showing for 5 seconds that logging in again logs the remote session out. Logging
+in again within a minute does that (**anything unsaved there is lost**) and continues to the local
+desktop. `/etc/pam.d/plasmalogin` overrides `/usr/lib/pam.d/plasmalogin`, so keep it in sync when
+plasma-login-manager changes its own.
+
 ## Kerberos single sign-on
 
 With Kerberos, grd has already authenticated the user and passes the user name along

@@ -27,6 +27,7 @@ mod config;
 mod display;
 mod greeter_ipc;
 mod handovers;
+mod local_login;
 mod logind;
 // Copied from greetd as is, including a few methods we don't use.
 #[allow(dead_code)]
@@ -125,7 +126,14 @@ enum LoginState {
 
 /// The question asked when the user already has a graphical session that isn't ours.
 fn chinese() -> bool {
-    std::env::var("LANG").is_ok_and(|lang| lang.starts_with("zh"))
+    let lang = std::env::var("LANG").ok().or_else(|| {
+        // pam_exec (local-login) runs us without LANG.
+        let conf = std::fs::read_to_string("/etc/locale.conf").ok()?;
+        conf.lines()
+            .find_map(|line| line.strip_prefix("LANG="))
+            .map(|lang| lang.trim_matches('"').to_owned())
+    });
+    lang.is_some_and(|lang| lang.starts_with("zh"))
 }
 
 fn conflict_question(username: &str) -> String {
@@ -163,6 +171,9 @@ struct Login {
     session_id: Option<String>,
     /// The greeter request waiting for what PAM does next.
     reply: Option<oneshot::Sender<Response>>,
+    /// The user's other sessions were logged out for this login, which also takes down their
+    /// existing remote session (`logind::stop_graphical_session`): don't go back to that one.
+    logged_out_others: bool,
 }
 
 struct GreeterUser {
@@ -203,6 +214,11 @@ fn main() -> anyhow::Result<()> {
     // The worker must not start a tokio runtime: it forks.
     if std::env::args().nth(1).as_deref() == Some("session-worker") {
         worker::main();
+    }
+
+    // Before logging is set up: pam_exec shows everything it prints to the user.
+    if std::env::args().nth(1).as_deref() == Some("local-login") {
+        std::process::exit(local_login::main());
     }
 
     tracing_subscriber::fmt()
@@ -630,6 +646,7 @@ impl State {
                                 state: LoginState::Authenticating,
                                 session_id: None,
                                 reply: Some(reply),
+                                logged_out_others: false,
                             });
                         }
                     }
@@ -653,6 +670,7 @@ impl State {
                             self.remotes.get_mut(&remote_key).and_then(|r| r.login.as_mut())
                         {
                             login.state = LoginState::Authenticated;
+                            login.logged_out_others = true;
                         }
                         let _ = reply.send(Response::Success);
                     } else {
@@ -694,7 +712,12 @@ impl State {
 
                 // Back to the session the user already has, if any (like GDM does).
                 let username = login.username.clone();
-                if let Some(existing) = self.find_user_session(&username, remote_key) {
+                let existing = if login.logged_out_others {
+                    None
+                } else {
+                    self.find_user_session(&username, remote_key)
+                };
+                if let Some(existing) = existing {
                     tracing::info!(remote = remote_key, existing, username, "reconnecting to the existing session");
                     let remote = self.remotes.get_mut(&remote_key).unwrap();
                     if let Some(mut login) = remote.login.take() {
@@ -875,6 +898,7 @@ impl State {
                     state: LoginState::Started,
                     session_id: None,
                     reply: None,
+                    logged_out_others: false,
                 }),
                 user_display: Some(path),
                 handed_over: false,
